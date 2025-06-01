@@ -1,0 +1,13 @@
+[project]
+name = "tgrobot"
+version = "0.1.0"
+description = "auto sign to telegram"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.2.1",
+    "cryptg>=0.5.0.post0",
+    "python-dotenv>=1.1.0",
+    "python-socks[asyncio]>=2.7.1",
+    "telethon>=1.40.0",
+]
