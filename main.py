@@ -54,6 +54,10 @@ def parse_proxy(proxy_str):
 @click.option('-p', '--proxy', default=None, help='代理地址（如 socks5://localhost:3067）')
 @click.pass_context
 def cli(ctx, account, proxy):
+    # 自动创建sessions目录
+    sessions_dir = os.path.join(os.getcwd(), 'sessions')
+    if not os.path.exists(sessions_dir):
+        os.makedirs(sessions_dir)
     ctx.ensure_object(dict)
     ctx.obj['account'] = account
     ctx.obj['proxy'] = parse_proxy(proxy)

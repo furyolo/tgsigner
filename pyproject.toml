@@ -1,5 +1,5 @@
 [project]
-name = "tgrobot"
+name = "tgsigner"
 version = "0.1.0"
 description = "auto sign to telegram"
 readme = "README.md"

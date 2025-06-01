@@ -77,7 +77,7 @@
   日志不记录 API 密钥等敏感信息。
 
 ## 文档与归档说明
-- 所有设计、决策、会议纪要、实现细节均归档于 `/project_document/` 目录，详见 `tgrobot_task.md`。
+- 所有设计、决策、会议纪要、实现细节均归档于 `/project_document/` 目录，详见 `tgsigner_task.md`。
 - 会议纪要、Checklist、进度与回顾等均严格遵循 RIPER-5 文档管理标准。
 
 ---
