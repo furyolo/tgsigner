@@ -6,17 +6,58 @@ import click
 from dotenv import load_dotenv
 from python_socks import ProxyType
 from telethon import TelegramClient
+from logging.handlers import RotatingFileHandler
+from telegram_log_handler import TelegramLogHandler
 
 # 加载.env
 load_dotenv()
 
-logging.basicConfig(
-    format = "%(asctime)s %(levelname)s:%(name)s: %(message)s",
-    level = logging.INFO,
-    datefmt = "%H:%M:%S",
-    stream = sys.stderr
+# {{CHENGQI:
+# Action: [Added/Modified]
+# Timestamp: 2025-06-02 10:53:33 +08:00 // Reason: [实现本地日志持久化，按方案B，RotatingFileHandler，满足可维护性与追溯需求]
+# Principle_Applied: [KISS/DRY/SOLID - 结构简单，日志轮转防止单文件过大，便于维护，控制台与文件双输出，日志目录自动创建]
+# Optimization: [自动创建logs目录，日志文件轮转，便于后续扩展多Handler或灵活配置]
+# Architectural_Note (AR): [日志与主业务解耦，便于后续扩展和维护]
+# Documentation_Note (DW): [日志策略与实现细节已同步至/project_document/，含时间戳与变更原因]
+# }}
+# {{START MODIFICATIONS}}
+LOG_DIR = os.path.join(os.getcwd(), 'logs')
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+log_file = os.path.join(LOG_DIR, 'main.log')
+
+# 设置RotatingFileHandler
+file_handler = RotatingFileHandler(
+    log_file, maxBytes=10*1024*1024, backupCount=7, encoding='utf-8'
 )
+file_handler.setFormatter(logging.Formatter(
+    "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+))
+file_handler.setLevel(logging.INFO)
+
+# 控制台Handler
+console_handler = logging.StreamHandler(sys.stderr)
+console_handler.setFormatter(logging.Formatter(
+    "%(asctime)s %(levelname)s:%(name)s: %(message)s", datefmt="%H:%M:%S"
+))
+console_handler.setLevel(logging.INFO)
+
+# 主logger配置
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+# 移除默认Handler，防止重复输出
+logger.handlers = []
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+try:
+    telegram_handler = TelegramLogHandler()
+    telegram_handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    logger.addHandler(telegram_handler)
+except Exception as e:
+    logger.warning(f"未启用Telegram日志推送Handler: {e}")
+# {{END MODIFICATIONS}}
 
 # 账户配置加载
 SUPPORTED_ACCOUNTS = [k.split('_')[0].lower() for k in os.environ.keys() if k.endswith('_API_ID')]
@@ -83,7 +124,7 @@ def send_text(ctx, dialog_id, message, delete_after):
             try:
                 response = await client.send_message(int(dialog_id), message)
                 if response:
-                    logger.info(f'消息发送成功: {response.text}')
+                    logger.info(f'消息发送成功！')
                     if delete_after:
                         await asyncio.sleep(delete_after)
                         await client.delete_messages(int(dialog_id), response.id)
@@ -124,6 +165,26 @@ def logout(ctx):
             await client.log_out()
             logger.info('已登出')
     asyncio.run(_logout())
+
+@cli.command()
+@click.pass_context
+def list_dialogs(ctx):
+    """列出当前账户的所有对话（dialog），显示名称和ID。"""
+    async def _list():
+        client = TelegramClient(
+            ctx.obj['session'],
+            ctx.obj['api_id'],
+            ctx.obj['api_hash'],
+            proxy=ctx.obj['proxy']
+        )
+        async with client:
+            logger.info('正在获取所有对话...')
+            try:
+                async for dialog in client.iter_dialogs():
+                    print(f'{dialog.name} has ID {dialog.id}')
+            except Exception as e:
+                logger.error(e)
+    asyncio.run(_list())
 
 if __name__ == '__main__':
     cli(obj={})

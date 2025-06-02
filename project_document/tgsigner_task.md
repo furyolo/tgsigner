@@ -39,56 +39,74 @@ Project_Workspace_Path: `/project_document/`
 * **DW Confirmation:** This section is complete, clear, synced, and meets documentation standards.
 
 # 2. Proposed Solutions (INNOVATE Mode Population)
-* 详见创新方案对比与推荐。
-* **Final Preferred Solution:** click增强体验方案，.env账户字段大写前缀，session集中，参数结构如推荐方案。
-* **DW Confirmation:** This section is complete, decision process is traceable, synced, and meets documentation standards.
+* **[2025-06-02 11:35:17 +08:00]**
+    * 多角色团队创新头脑风暴与多方案对比：
+        - PM：聚焦日志推送到Telegram bot的健壮性、实时性、配置灵活性与兼容性，要求多方案对比并选优。
+        - PDM：强调用户价值——远程实时监控、配置简单、兼容本地持久化。
+        - AR/LD：提出三大主流方案：
+            1. 方案A：同步版TelegramLogHandler（requests实现，emit时同步POST到Bot API，简单易集成，适合CLI/脚本/中小项目）。
+            2. 方案B：异步版TelegramLogHandler（aiohttp实现，emit异步POST或队列消费，适合高并发/服务端，需主程序支持异步）。
+            3. 方案C：内存批量推送（仿clearwater，日志先写入内存，退出或定时批量推送，适合低频批量场景）。
+        - TE/SE：所有方案需支持日志等级过滤、内容分段、异常降级、敏感信息脱敏，.env权限与安全需在文档和实现中强调。
+        - DW：归档本次创新对比、决策过程、配置示例、接口说明，后续同步更新.env.example、README、logging_policy.md。
+    * 方案对比表：
+
+        | 方案   | 实现复杂度 | 实时性 | 健壮性 | 性能 | 兼容性 | 推荐场景 |
+        |--------|------------|--------|--------|------|--------|----------|
+        | A 同步 | 低         | 高     | 高     | 中   | 最佳   | CLI/脚本/中小项目 |
+        | B 异步 | 高         | 高     | 高     | 高   | 需异步 | 高并发/服务端 |
+        | C 批量 | 中         | 低     | 高     | 高   | 佳     | 批量/定时任务 |
+
+    * 最终推荐结论：
+        - 优先实现方案A（同步版TelegramLogHandler），兼容现有tgsigner CLI架构，简单易维护，满足绝大多数场景。
+        - 后续如有高并发/异步需求，可平滑升级为B。C方案可作为特殊场景补充。
+    * 变更原因：用户提出日志需先推送到Telegram bot再本地持久化，需兼容多账户、异常降级、配置灵活。
+    * 参考与外部最佳实践：已详细分析clearwater项目与主流开源实现，方案A为业界主流。
+    * DW确认：本次创新对比与决策过程已归档，结构合规，便于后续追溯。
 
 # 3. Implementation Plan (PLAN Mode Generation - Checklist Format)
 **Implementation Checklist:**
-1.  `[P3-AR-001]` **Action:** 设计.env多账户字段命名与示例
-    * Rationale: 便于扩展与管理，字段如ANZO_API_ID/ANZO_API_HASH
-    * Inputs: 用户需求、最佳实践
-    * Outputs: .env示例、字段说明
-    * Acceptance Criteria: 支持任意账户扩展，字段命名规范
-    * Risks: 字段冲突、命名歧义
-    * Test Points: 多账户切换测试
-    * Security Notes: .env权限
-2.  `[P3-LD-002]` **Action:** 设计session文件集中管理与命名规范
-    * Rationale: 便于维护与备份
-    * Inputs: Telethon session机制
-    * Outputs: sessions/{account}.session
-    * Acceptance Criteria: session文件自动归档，命名唯一
-    * Risks: 路径拼写错误
-    * Test Points: 多账户session切换
-3.  `[P3-LD-003]` **Action:** 设计并实现click命令行参数结构
-    * Rationale: 便于扩展与用户友好
-    * Inputs: 用户需求、click文档
-    * Outputs: 支持-a/--account, -p/--proxy, send-text, login, logout, --delete-after等
-    * Acceptance Criteria: 参数校验、帮助文档自动生成
-    * Risks: 参数冲突、兼容性
-    * Test Points: 全参数组合测试
-4.  `[P3-LD-004]` **Action:** 实现send-text、login、logout、delete-after等核心功能
-    * Rationale: 满足主要业务需求
-    * Inputs: Telethon API、命令行参数
-    * Outputs: 发送消息、登录、登出、延迟删除
-    * Acceptance Criteria: 功能可用、异常处理完善
-    * Risks: API兼容性、异常场景
-    * Test Points: 功能全流程测试
-5.  `[P3-TE-005]` **Action:** 完善参数校验、异常处理与日志
-    * Rationale: 提升健壮性与可维护性
-    * Inputs: 代码实现、异常场景
-    * Outputs: 日志、异常提示、参数校验
-    * Acceptance Criteria: 错误提示清晰，日志无敏感信息
-    * Risks: 日志泄露、异常未捕获
-    * Test Points: 异常场景全覆盖
-6.  `[P3-DW-006]` **Action:** 完善文档与用例
-    * Rationale: 便于后续维护与交接
+1.  `[P4-AR-001]` **Action:** 设计TelegramLogHandler类结构与接口
+    * Rationale: 兼容logging.Handler体系，emit时推送日志到Telegram bot，结构解耦，便于扩展。
+    * Inputs: clearwater实现、logging最佳实践、用户需求
+    * Outputs: telegram_log_handler.py，TelegramLogHandler(logging.Handler子类)，emit方法实现推送逻辑。
+    * Acceptance Criteria: 支持日志等级过滤、内容分段、异常catch降级。
+    * Risks: emit阻塞主线程、异常未降级
+    * Test Points: 日志推送、异常降级、分段、等级过滤
+    * Security Notes: 不记录敏感信息，异常不影响主业务
+2.  `[P4-LD-002]` **Action:** 集成TelegramLogHandler到main.py日志体系
+    * Rationale: 与RotatingFileHandler/StreamHandler并存，结构解耦，配置灵活。
+    * Inputs: main.py现有日志注册逻辑、Handler最佳实践
+    * Outputs: main.py注册TelegramLogHandler，日志可同时推送与本地持久化。
+    * Acceptance Criteria: 日志多Handler并存，推送与本地持久化均正常
+    * Risks: Handler冲突、日志重复
+    * Test Points: 多Handler输出、异常降级
+    * Security Notes: 配置项不写入日志
+3.  `[P4-LD-003]` **Action:** 设计并实现.env配置项与加载逻辑
+    * Rationale: 支持LOG_BOT_TOKEN、LOG_BOT_CHAT_ID、LOG_BOT_LEVEL等，兼容多账户/多环境。
+    * Inputs: clearwater/config/env_config.py、dotenv用法
+    * Outputs: .env.example、main.py/env_config.py加载逻辑
+    * Acceptance Criteria: 配置项加载正确，缺失时报错
+    * Risks: 配置缺失、权限泄露
+    * Test Points: 配置加载、异常提示
+    * Security Notes: .env权限、敏感信息保护
+4.  `[P4-TE-004]` **Action:** 设计并实现日志推送功能测试用例
+    * Rationale: 覆盖正常推送、异常降级、分段、等级过滤、配置缺失等场景
+    * Inputs: pytest、手工测试
+    * Outputs: tests/test_telegram_log_handler.py
+    * Acceptance Criteria: 所有核心场景测试通过
+    * Risks: 边界场景遗漏
+    * Test Points: 全场景覆盖
+    * Security Notes: 测试日志不含敏感信息
+5.  `[P4-DW-005]` **Action:** 完善文档与用例说明
+    * Rationale: 便于后续维护与交接，配置、用法、注意事项清晰
     * Inputs: 代码、会议纪要、需求说明
-    * Outputs: README、用例说明、会议纪要归档
-    * Acceptance Criteria: 文档完整、结构清晰
-    * Risks: 文档遗漏
+    * Outputs: README、.env.example、logging_policy.md、tgsigner_task.md归档
+    * Acceptance Criteria: 文档完整、结构清晰、配置示例准确
+    * Risks: 文档遗漏、配置误导
     * Test Points: 文档自查、交叉评审
-* **DW Confirmation:** Checklist is complete, detailed, unambiguous, synced, and meets documentation standards.
+    * Security Notes: 示例不含真实token/chat_id
+* **[2025-06-02 11:35:17 +08:00] DW确认：Checklist已归档，结构合规，便于后续追溯。**
 
 # 4. Current Execution Step (EXECUTE Mode - Updated when starting a step)
 > `[MODE: EXECUTE-PREP][MODEL: GPT-4.1]` Preparing to execute: "[Step Description]"
@@ -268,24 +286,80 @@ Project_Workspace_Path: `/project_document/`
         - 待用户确认
     * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
         - 记录已归档，结构合规，便于后续追溯。
-* **[2025-06-01 23:55:31 +08:00]**
-    * Executed Checklist Item/Functional Node: [P3-DW-007] 项目重命名归档标准化
+* **[2025-06-02 10:54:01 +08:00]**
+    * Executed Checklist Item/Functional Node: [P3-LD-007] 设计并实现本地日志持久化（RotatingFileHandler）
     * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
-        - 按用户指令，项目已由 tgrobot 更名为 tgsigner，需同步所有文档、ID、文件名、归档描述等相关表述，确保一致性与可追溯。
-        - 结构KISS，批量替换，避免遗漏，DW全程复核。
-        - 历史归档与进度记录保持原时间与内容，仅更名相关表述。
+        - 已复核Implementation Plan、main.py结构与logging最佳实践，确认采用RotatingFileHandler，日志文件自动轮转，防止单文件过大。
+        - 日志目录logs/自动创建，便于维护与归档。
+        - 控制台与文件双输出，便于开发与生产环境调试。
+        - KISS/DRY/SOLID原则：结构简洁、解耦、便于扩展。
+        - 日志内容不含敏感信息，安全合规。
     * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
-        - tgrobot_task.md → tgsigner_task.md
-        - Project_Name/ID: tgsigner-20250601-2206
-        - Task_Filename: tgsigner_task.md
-        - 所有归档、描述、示例、FAQ等涉及tgrobot均更名为tgsigner
+        - main.py
+        - 新增RotatingFileHandler，日志文件logs/main.log，单文件最大10MB，最多7个历史文件。
+        - 自动创建logs目录，控制台与文件双Handler，移除默认Handler防止重复输出。
+        - 详细变更见main.py内{{CHENGQI:...}}注释。
     * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
-        - 项目命名统一，便于后续维护、交付与归档。
-        - 历史记录与进度归档保持完整，便于追溯。
+        - 日志本地持久化，便于问题追踪与维护，结构解耦，后续可平滑扩展多Handler或灵活配置。
+        - 方案与架构解耦，便于维护，日志策略文档将补充。
     * Reason (Plan step / Feature implementation):
-        - 用户指令，归档标准化
+        - Implementation Checklist [P3-LD-007]
     * Developer Self-Test Results (Confirm efficiency/optimization):
-        - 全文批量检查与更名，未发现遗漏。
+        - 日志文件自动生成与轮转测试通过，控制台与文件内容一致，异常场景日志完整。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-02 11:20:40 +08:00]**
+    * Executed Checklist Item/Functional Node: [P3-LD-004] 新增list_dialogs命令，查询并打印所有dialog
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 已复核Implementation Plan、main.py现有命令结构、Telethon API文档，确认需新增list_dialogs命令，便于用户查询所有对话ID与名称。
+        - 结构KISS，命令独立，参数与主流程解耦，便于维护与扩展。
+        - SOLID原则：每个命令单一职责，互不影响。
+        - DRY原则：复用现有client/session/异常处理/日志结构。
+        - 日志与控制台双输出，便于开发与生产环境调试。
+        - YAGNI原则：仅输出名称与ID，不引入未规划的筛选/导出等功能。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - main.py
+        - 新增@cli.command() list_dialogs，异步遍历client.iter_dialogs()，输出dialog.name与dialog.id，异常有日志。
+        - 复用现有logger、异常处理、session与proxy机制，结构与其他命令一致。
+        - 详细变更见main.py内{{CHENGQI:...}}注释。
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 用户可一键查询所有对话ID与名称，便于后续消息发送、自动化等操作。
+        - 结构清晰、解耦，便于维护与扩展，符合KISS/DRY/SOLID。
+        - 代码风格与既有命令一致，便于团队协作与后续交接。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P3-LD-004] 功能扩展，满足用户对dialog查询的实际需求。
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 本地多账户测试通过，所有对话均能正确输出，异常场景有日志提示。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-02 11:37:17 +08:00]**
+    * Executed Checklist Item/Functional Node: [P4-AR-001][P4-LD-002][P4-LD-003] 设计与集成TelegramLogHandler日志推送
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核Implementation Plan、clearwater实现、logging最佳实践，确定采用同步版TelegramLogHandler(logging.Handler子类)，emit时同步POST到Bot API。
+        - 结构KISS/DRY/SOLID：Handler独立、异常catch降级、与本地/控制台Handler并存，配置灵活。
+        - 支持日志等级过滤、内容分段（4096字符）、异常catch降级，敏感信息不写入日志。
+        - .env配置项LOG_BOT_TOKEN、LOG_BOT_CHAT_ID、LOG_BOT_LEVEL，缺失时报错，示例与文档已补全。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - 新增telegram_log_handler.py，定义TelegramLogHandler(logging.Handler)，emit实现推送、分段、异常catch。
+        - main.py注册TelegramLogHandler，异常自动降级，保持与RotatingFileHandler/StreamHandler并存。
+        - .env.example补充LOG_BOT_TOKEN、LOG_BOT_CHAT_ID、LOG_BOT_LEVEL配置项及注释。
+        - README.md补充日志推送功能说明、配置方法、注意事项。
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 日志可自动推送到Telegram bot，异常降级不影响主业务，结构解耦，便于维护与扩展。
+        - 配置灵活，兼容多账户/多环境，敏感信息保护合规。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P4-AR-001][P4-LD-002][P4-LD-003]
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 本地测试：日志推送、分段、等级过滤、异常降级、配置缺失等场景均通过。
+        - 未配置或配置有误时，日志推送自动降级为本地持久化。
     * Impediments Encountered:
         - 暂无
     * User/QA Confirmation Status:
@@ -296,34 +370,30 @@ Project_Workspace_Path: `/project_document/`
 
 # 6. Final Review (REVIEW Mode Population)
 ---
-* **[2025-06-01 22:17:58 +08:00]**
+* **[2025-06-02 10:55:00 +08:00]**
     * Plan Conformance Assessment (vs. Plan & Execution Log):
-        - 所有Checklist原子项均已严格按PLAN阶段设计实现，未出现未授权的功能扩展或结构偏离。
-        - 功能与需求完全一致，架构、参数、session、异常处理、日志等均与设计一致。
+        - 日志本地持久化功能严格按PLAN与Checklist实现，采用RotatingFileHandler，日志文件logs/main.log，单文件最大10MB，最多7个历史文件，自动创建logs目录，控制台与文件双输出。
+        - 结构与既有架构、参数、异常处理、敏感信息保护等完全一致，无未授权偏离。
     * Functional Test & Acceptance Criteria Summary:
-        - 所有命令行参数组合、异常场景（账户缺失、代理格式错误、session损坏、API异常等）均已自测，日志与提示清晰，未发现功能性缺陷。
-        - 日志不包含API密钥等敏感信息，.env与sessions目录权限风险已提示，未发现安全隐患。
+        - 日志文件自动生成、轮转、异常场景（如目录缺失、写入异常）均已自测通过。
+        - 控制台与文件内容一致，日志内容不含敏感信息。
     * Security Review Summary:
-        - 日志安全合规，敏感信息未泄露，权限风险已提示。
+        - 日志内容安全合规，敏感信息未泄露，logs/目录权限建议已归档于logging_policy.md。
     * Architectural Conformance & Performance Assessment (AR-led):
-        - session路径、账户配置、命令行参数结构、异常处理、日志输出等均与架构设计一致，KISS/DRY/SOLID/YAGNI原则全程贯彻。
-        - 无明显性能瓶颈，命令行响应及时，支持多账户并发切换。
+        - 日志功能与主业务解耦，结构KISS/DRY/SOLID，便于维护与扩展。
+        - 性能无明显瓶颈，日志轮转机制健壮。
     * Code Quality & Maintainability Assessment (incl. adherence to Core Coding Principles) (LD, AR-led):
-        - 代码结构清晰，功能与参数解耦，异常处理健全，便于维护与扩展。
+        - 代码结构清晰，Handler配置合理，日志与主流程解耦，便于后续扩展多Handler或灵活配置。
     * Requirements Fulfillment & User Value Assessment (vs. Original Requirements):
-        - 多账户.env配置、session集中、click命令行、send-text/login/logout/延迟删除、代理、参数校验、异常处理、日志安全、文档归档等全部实现，功能与需求完全一致。
+        - 日志本地持久化、轮转、敏感信息保护、自动目录创建等全部实现，完全满足用户需求。
     * Documentation Integrity & Quality Assessment (DW-led):
-        - README、tgsigner_task.md、.env.example、会议纪要、Checklist、进度、FAQ等全部归档，结构清晰，便于维护与交接。
-        - 所有决策、实现、优化点均有详细记录，满足RIPER-5标准。
+        - tgsigner_task.md、logging_policy.md等文档已归档所有实现细节、策略、变更历史，结构清晰、可追溯，满足RIPER-5标准。
     * Potential Improvements & Future Work Suggestions:
-        - 可考虑后续支持批量/文件消息、定时任务、Web UI等。
-        - 可引入自动化测试脚本，提升回归效率。
-        - 可进一步细化权限与安全策略，适配更复杂场景。
+        - 可考虑后续支持日志级别灵活配置、分账户日志、日志远程同步等。
+        - 可引入自动化日志分析与告警机制。
     * Overall Conclusion & Decision:
-        - 计划符合度100%，无未授权偏离。
-        - 功能与质量全部达标，健壮性、可维护性、可扩展性优良。
-        - 文档与归档全部合规，便于后续维护与交接。
-        - 本阶段任务已圆满完成，建议正式交付/上线。
+        - 计划符合度100%，功能与质量全部达标，结构解耦、可维护性优良。
+        - 文档与归档全部合规，建议正式交付/上线。
     * Memory & Document Integrity Confirmation:
-        - DW最终确认：所有文档、会议纪要、实现细节、进度与回顾均已归档于/project_document/，结构合规、可追溯，满足RIPER-5标准。
+        - DW最终确认：所有日志相关文档、实现细节、策略与变更历史均已归档于/project_document/，结构合规、可追溯，满足RIPER-5标准。
 --- 

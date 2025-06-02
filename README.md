@@ -1,15 +1,16 @@
 # Telegram 多账户命令行机器人
 
-> 更新时间：2025-06-01 23:06:45 +08:00
+> 更新时间：2025-06-02 12:35:12 +08:00
 
 ## 项目简介
-本项目基于 Telethon，支持多账户、集中 session 管理、命令行灵活操作（消息发送、登录、登出、延迟删除、代理等），适用于 Telegram 群组/频道自动化、批量运维等场景。
+本项目基于 Telethon，支持多账户、集中 session 管理、命令行灵活操作（消息发送、登录、登出、延迟删除、代理、对话查询等），适用于 Telegram 群组/频道自动化、批量运维等场景。
 
 ## 核心特性
 - 多账户支持，账户配置集中于 .env，字段如 ANZO_API_ID/ANZO_API_HASH。
 - 所有 session 文件集中于 `sessions/` 目录，命名为 `{account}.session`。
-- 命令行接口基于 click，支持账户切换、代理、消息发送与删除、登录登出等。
+- 命令行接口基于 click，支持账户切换、代理、消息发送与删除、登录登出、对话查询等。
 - 日志安全、参数校验、异常处理完善。
+- 日志可自动推送到 Telegram bot，支持本地持久化、分段、等级过滤、异常降级。
 - 结构清晰，便于扩展批量/文件发送等功能。
 
 ## 快速开始
@@ -25,8 +26,12 @@
    # fury 账户
    FURY_API_ID=654321
    FURY_API_HASH=098765fedcba098765fedcba098765fe
+   # Telegram 日志推送配置
+   LOG_BOT_TOKEN=your_bot_token_here
+   LOG_BOT_CHAT_ID=123456789
+   LOG_BOT_LEVEL=ERROR
    ```
-3. **确保 `sessions/` 目录存在**，所有 session 文件将自动存放于此。
+3. **确保 `sessions/` 和 `logs/` 目录存在**，首次运行会自动创建，无需手动操作。
 
 ## 命令行用法
 以 uv 为例：
@@ -47,6 +52,10 @@
   ```bash
   uv run main.py -a fury logout
   ```
+- **查询所有对话（dialog）ID与名称**
+  ```bash
+  uv run main.py -a anzo list-dialogs
+  ```
 - **dialog_id 为负数时的用法**
   > **注意：** 如果 dialog_id 为负数，需在参数前加 `--`，如：
   ```bash
@@ -60,6 +69,27 @@
 - `send-text`：发送消息命令，需指定 dialog_id 和消息内容。
 - `--delete-after`：N 秒后自动删除消息，可选。
 - `login`/`logout`：登录/登出账户。
+- `list-dialogs`：查询所有对话ID与名称。
+
+## 日志推送与本地持久化
+- **日志推送到Telegram bot**：
+  - 需在.env中配置：
+    - `LOG_BOT_TOKEN`：用于推送日志的bot token
+    - `LOG_BOT_CHAT_ID`：日志推送目标chat_id（个人或群组）
+    - `LOG_BOT_LEVEL`：推送日志的最低等级（如ERROR/CRITICAL/INFO）
+  - 日志推送支持：
+    - 日志等级过滤（仅推送高于设定等级的日志）
+    - 内容分段（单条消息最大4096字符，自动分段推送）
+    - 异常catch降级（推送失败自动降级为本地持久化，不影响主业务）
+    - 敏感信息保护（日志不含API密钥等敏感信息）
+  - 配置缺失或错误时，日志推送自动降级为本地持久化。
+- **本地日志持久化**：
+  - 日志文件存放于 `logs/main.log`，自动轮转（单文件最大10MB，最多7个历史文件）。
+  - 控制台与文件双输出，便于开发与生产调试。
+  - logs/目录首次运行自动创建。
+  - 日志内容不含API_ID、API_HASH等敏感信息。
+  - 建议设置logs/目录合理权限，防止未授权访问。
+- **详细日志策略与安全说明**见 `/project_document/logging_policy.md`。
 
 ## 常见问题 FAQ
 - **如何扩展新账户？**
@@ -73,11 +103,20 @@
   ```bash
   uv run main.py -a fury send-text --delete-after 10 -- -105275 hello
   ```
+- **如何查询所有对话ID与名称？**
+  使用 `list-dialogs` 命令：
+  ```bash
+  uv run main.py -a anzo list-dialogs
+  ```
+- **日志推送到Telegram bot如何配置？推送失败会怎样？**
+  需在.env配置LOG_BOT_TOKEN、LOG_BOT_CHAT_ID、LOG_BOT_LEVEL，推送失败自动降级为本地日志，不影响主业务。
+- **日志本地持久化如何轮转？**
+  日志文件最大10MB，最多7个历史文件，超出自动轮转。
 - **日志是否包含敏感信息？**
-  日志不记录 API 密钥等敏感信息。
+  日志不记录API密钥等敏感信息。
 
 ## 文档与归档说明
-- 所有设计、决策、会议纪要、实现细节均归档于 `/project_document/` 目录，详见 `tgsigner_task.md`。
+- 所有设计、决策、会议纪要、实现细节、日志策略均归档于 `/project_document/` 目录，详见 `tgsigner_task.md`、`logging_policy.md`。
 - 会议纪要、Checklist、进度与回顾等均严格遵循 RIPER-5 文档管理标准。
 
 ---
