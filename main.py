@@ -13,50 +13,21 @@ from telegram_log_handler import TelegramLogHandler
 load_dotenv()
 
 # {{CHENGQI:
-# Action: [Added/Modified]
-# Timestamp: 2025-06-02 10:53:33 +08:00 // Reason: [实现本地日志持久化，按方案B，RotatingFileHandler，满足可维护性与追溯需求]
-# Principle_Applied: [KISS/DRY/SOLID - 结构简单，日志轮转防止单文件过大，便于维护，控制台与文件双输出，日志目录自动创建]
-# Optimization: [自动创建logs目录，日志文件轮转，便于后续扩展多Handler或灵活配置]
-# Architectural_Note (AR): [日志与主业务解耦，便于后续扩展和维护]
-# Documentation_Note (DW): [日志策略与实现细节已同步至/project_document/，含时间戳与变更原因]
+# Action: [Added]
+# Timestamp: 2025-06-02 16:09:23 +08:00 // Reason: [实现AccountFilter(logging.Filter)，自动注入account，日志内容带account，调用端无侵入]
+# Principle_Applied: [KISS/DRY/SOLID - Filter单一职责，结构简单，日志内容自动注入account，便于维护与扩展]
+# Optimization: [日志内容自动带account，Handler/Formatter配置解耦，便于后续多账户扩展]
+# Architectural_Note (AR): [日志系统与主业务解耦，便于维护与扩展]
+# Documentation_Note (DW): [AccountFilter实现与集成细节已同步至/project_document/，含时间戳与变更原因]
 # }}
 # {{START MODIFICATIONS}}
-LOG_DIR = os.path.join(os.getcwd(), 'logs')
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-log_file = os.path.join(LOG_DIR, 'main.log')
-
-# 设置RotatingFileHandler
-file_handler = RotatingFileHandler(
-    log_file, maxBytes=10*1024*1024, backupCount=7, encoding='utf-8'
-)
-file_handler.setFormatter(logging.Formatter(
-    "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-))
-file_handler.setLevel(logging.INFO)
-
-# 控制台Handler
-console_handler = logging.StreamHandler(sys.stderr)
-console_handler.setFormatter(logging.Formatter(
-    "%(asctime)s %(levelname)s:%(name)s: %(message)s", datefmt="%H:%M:%S"
-))
-console_handler.setLevel(logging.INFO)
-
-# 主logger配置
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-# 移除默认Handler，防止重复输出
-logger.handlers = []
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
-try:
-    telegram_handler = TelegramLogHandler()
-    telegram_handler.setFormatter(logging.Formatter(
-        "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    ))
-    logger.addHandler(telegram_handler)
-except Exception as e:
-    logger.warning(f"未启用Telegram日志推送Handler: {e}")
+class AccountFilter(logging.Filter):
+    def __init__(self, account):
+        super().__init__()
+        self.account = account
+    def filter(self, record):
+        record.account = self.account
+        return True
 # {{END MODIFICATIONS}}
 
 # 账户配置加载
@@ -104,6 +75,60 @@ def cli(ctx, account, proxy):
     ctx.obj['proxy'] = parse_proxy(proxy)
     ctx.obj['session'] = get_session_path(account)
     ctx.obj['api_id'], ctx.obj['api_hash'] = get_account_config(account)
+
+    # {{CHENGQI:
+    # Action: [Modified]
+    # Timestamp: 2025-06-02 16:09:23 +08:00 // Reason: [日志Handler/Formatter/Filter按account动态配置，日志内容和文件均带account]
+    # Principle_Applied: [KISS/DRY/SOLID - 动态配置，结构解耦，便于维护与扩展]
+    # Optimization: [日志文件名logs/{account}.log，所有Handler均加AccountFilter，Formatter统一加%(account)s]
+    # Architectural_Note (AR): [日志系统与主业务解耦，便于后续多账户扩展]
+    # Documentation_Note (DW): [日志系统动态配置细节已同步至/project_document/，含时间戳与变更原因]
+    # }}
+    # {{START MODIFICATIONS}}
+    global logger
+    LOG_DIR = os.path.join(os.getcwd(), 'logs')
+    if not os.path.exists(LOG_DIR):
+        os.makedirs(LOG_DIR)
+    log_file = os.path.join(LOG_DIR, f'{account}.log')
+
+    # 日志格式统一加account
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s [%(account)s]: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    # 文件Handler
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=10*1024*1024, backupCount=7, encoding='utf-8'
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    file_handler.addFilter(AccountFilter(account))
+
+    # 控制台Handler
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+    console_handler.addFilter(AccountFilter(account))
+
+    # Telegram Handler
+    handlers = [file_handler, console_handler]
+    try:
+        telegram_handler = TelegramLogHandler()
+        telegram_handler.setFormatter(formatter)
+        telegram_handler.addFilter(AccountFilter(account))
+        handlers.append(telegram_handler)
+    except Exception as e:
+        # 临时logger用于初始化异常
+        tmp_logger = logging.getLogger(f'tgsigner.{account}.init')
+        tmp_logger.warning(f"未启用Telegram日志推送Handler: {e}")
+
+    # logger按account命名，防止多账户冲突
+    logger = logging.getLogger(f'tgsigner.{account}')
+    logger.setLevel(logging.INFO)
+    logger.handlers = []
+    for h in handlers:
+        logger.addHandler(h)
+    # {{END MODIFICATIONS}}
 
 @cli.command()
 @click.argument('dialog_id', type=str)

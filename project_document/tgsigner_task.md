@@ -366,31 +366,78 @@ Project_Workspace_Path: `/project_document/`
         - 待用户确认
     * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
         - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-02 16:09:23 +08:00]**
+    * Executed Checklist Item/Functional Node: [P3-AR-001] 设计并实现AccountFilter(logging.Filter)，支持account注入
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核Implementation Plan、main.py现有日志结构，确认需实现AccountFilter(logging.Filter)，自动注入account，日志内容均带account，调用端无侵入。
+        - 结构KISS，Filter单一职责，调用端无需传extra，日志内容自动带account。
+        - DRY原则，日志内容自动注入account，避免重复拼接。
+        - SOLID原则，Filter与Handler/Formatter解耦，便于维护与扩展。
+        - 高内聚低耦合，日志系统与主业务解耦。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - main.py
+        ```python
+        # {{CHENGQI:
+        # Action: [Added]
+        # Timestamp: 2025-06-02 16:09:23 +08:00 // Reason: [实现AccountFilter(logging.Filter)，自动注入account，日志内容带account，调用端无侵入]
+        # Principle_Applied: [KISS/DRY/SOLID - Filter单一职责，结构简单，日志内容自动注入account，便于维护与扩展]
+        # Optimization: [日志内容自动带account，Handler/Formatter配置解耦，便于后续多账户扩展]
+        # Architectural_Note (AR): [日志系统与主业务解耦，便于维护与扩展]
+        # Documentation_Note (DW): [AccountFilter实现与集成细节已同步至/project_document/，含时间戳与变更原因]
+        # }}
+        class AccountFilter(logging.Filter):
+            def __init__(self, account):
+                super().__init__()
+                self.account = account
+            def filter(self, record):
+                record.account = self.account
+                return True
+        # ...
+        # cli入口动态配置logger、Handler、Formatter、Filter，日志内容自动带account，日志文件名为logs/{account}.log，兼容控制台与TelegramLogHandler。
+        # ...
+        # 日志格式统一加%(account)s，所有Handler均加AccountFilter。
+        ```
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - AccountFilter实现后，日志内容自动带account，调用端无侵入，结构简洁，便于维护与扩展。
+        - 日志文件名按account区分，便于多账户隔离与追溯。
+        - 兼容RotatingFileHandler、StreamHandler、TelegramLogHandler，便于后续扩展。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P3-AR-001]
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 日志内容均带account，调用端无需传extra，测试通过。
+        - 日志文件按account区分，内容与文件均正确。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
 ---
 
 # 6. Final Review (REVIEW Mode Population)
 ---
-* **[2025-06-02 10:55:00 +08:00]**
+* **[2025-06-02 16:10:48 +08:00]**
     * Plan Conformance Assessment (vs. Plan & Execution Log):
-        - 日志本地持久化功能严格按PLAN与Checklist实现，采用RotatingFileHandler，日志文件logs/main.log，单文件最大10MB，最多7个历史文件，自动创建logs目录，控制台与文件双输出。
-        - 结构与既有架构、参数、异常处理、敏感信息保护等完全一致，无未授权偏离。
+        - 日志文件与内容按account区分的升级严格按PLAN与Checklist实现，AccountFilter(logging.Filter)自动注入account，日志内容与文件均带account，调用端无侵入。
+        - Handler/Formatter/Filter动态配置，兼容RotatingFileHandler、StreamHandler、TelegramLogHandler。
+        - 结构KISS/DRY/SOLID，便于维护与扩展，无未授权偏离。
     * Functional Test & Acceptance Criteria Summary:
-        - 日志文件自动生成、轮转、异常场景（如目录缺失、写入异常）均已自测通过。
-        - 控制台与文件内容一致，日志内容不含敏感信息。
+        - 日志内容均带account，日志文件按account区分，调用端无需传extra，测试通过。
+        - 多账户切换、异常场景、日志轮转、Telegram推送等功能均自测通过。
     * Security Review Summary:
-        - 日志内容安全合规，敏感信息未泄露，logs/目录权限建议已归档于logging_policy.md。
+        - 日志内容安全合规，敏感信息未泄露，日志目录权限建议已归档于logging_policy.md。
     * Architectural Conformance & Performance Assessment (AR-led):
-        - 日志功能与主业务解耦，结构KISS/DRY/SOLID，便于维护与扩展。
-        - 性能无明显瓶颈，日志轮转机制健壮。
+        - 日志系统与主业务解耦，结构KISS/DRY/SOLID，便于维护与扩展。
+        - 性能无明显瓶颈，日志轮转与推送机制健壮。
     * Code Quality & Maintainability Assessment (incl. adherence to Core Coding Principles) (LD, AR-led):
-        - 代码结构清晰，Handler配置合理，日志与主流程解耦，便于后续扩展多Handler或灵活配置。
+        - 代码结构清晰，Filter/Handler配置合理，日志与主流程解耦，便于后续扩展多Handler或灵活配置。
     * Requirements Fulfillment & User Value Assessment (vs. Original Requirements):
-        - 日志本地持久化、轮转、敏感信息保护、自动目录创建等全部实现，完全满足用户需求。
+        - 日志文件与内容均按account区分，兼容本地持久化、轮转、Telegram推送、异常降级等，完全满足用户需求。
     * Documentation Integrity & Quality Assessment (DW-led):
         - tgsigner_task.md、logging_policy.md等文档已归档所有实现细节、策略、变更历史，结构清晰、可追溯，满足RIPER-5标准。
     * Potential Improvements & Future Work Suggestions:
-        - 可考虑后续支持日志级别灵活配置、分账户日志、日志远程同步等。
-        - 可引入自动化日志分析与告警机制。
+        - 可考虑后续支持日志级别灵活配置、日志远程同步、自动化日志分析与告警等。
+        - 预留多账户并发扩展点。
     * Overall Conclusion & Decision:
         - 计划符合度100%，功能与质量全部达标，结构解耦、可维护性优良。
         - 文档与归档全部合规，建议正式交付/上线。
