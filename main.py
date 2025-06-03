@@ -8,6 +8,7 @@ from python_socks import ProxyType
 from telethon import TelegramClient
 from logging.handlers import RotatingFileHandler
 from telegram_log_handler import TelegramLogHandler
+from telethon.events import NewMessage
 
 # 加载.env
 load_dotenv()
@@ -210,6 +211,66 @@ def list_dialogs(ctx):
             except Exception as e:
                 logger.error(e)
     asyncio.run(_list())
+
+@cli.command()
+@click.argument('dialog_id', type=str)
+@click.argument('message', type=str)
+@click.option('--timeout', type=int, default=30, help='等待回复的最大时长（秒），默认30秒')
+@click.option('--max-messages', type=int, default=1, help='最多捕获多少条回复，默认1条')
+@click.option('--delete-after', type=int, default=None, help='N秒后自动删除消息')
+@click.pass_context
+def send_and_log_reply(ctx, dialog_id, message, timeout, max_messages, delete_after):
+    """发送消息到指定dialog_id，监听回复并写入日志。可选N秒后自动删除消息。"""
+    async def _send_and_listen():
+        client = TelegramClient(
+            ctx.obj['session'],
+            ctx.obj['api_id'],
+            ctx.obj['api_hash'],
+            proxy=ctx.obj['proxy']
+        )
+        received_msgs = []
+        event = asyncio.Event()
+        
+        def is_target_reply(event_message):
+            # 只监听目标对话的消息，且为新消息（不含自己发的）
+            return (str(event_message.chat_id) == str(dialog_id)) and (not event_message.out)
+
+        async def handler(event_message):
+            if is_target_reply(event_message):
+                logger.info(f'收到回复: {event_message.text}')
+                received_msgs.append(event_message.text)
+                if len(received_msgs) >= max_messages:
+                    event.set()
+
+        async def listen_replies():
+            client.add_event_handler(handler, NewMessage(chats=int(dialog_id)))
+            try:
+                await asyncio.wait_for(event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
+                logger.info(f'监听超时（{timeout}秒），共收到{len(received_msgs)}条回复')
+            finally:
+                client.remove_event_handler(handler, NewMessage(chats=int(dialog_id)))
+
+        async def del_after():
+            try:
+                await asyncio.sleep(delete_after)
+                await client.delete_messages(int(dialog_id), response.id)
+                logger.info('消息已删除')
+            except Exception as e:
+                logger.error(f'自动删除消息失败: {e}')
+
+        async with client:
+            logger.info(f'向{dialog_id}发送: {message}')
+            try:
+                response = await client.send_message(int(dialog_id), message)
+                tasks = []
+                if response and delete_after:
+                    tasks.append(asyncio.create_task(del_after()))
+                tasks.append(asyncio.create_task(listen_replies()))
+                await asyncio.gather(*tasks)
+            except Exception as e:
+                logger.error(e)
+    asyncio.run(_send_and_listen())
 
 if __name__ == '__main__':
     cli(obj={})

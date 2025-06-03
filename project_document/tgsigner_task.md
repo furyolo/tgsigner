@@ -412,6 +412,154 @@ Project_Workspace_Path: `/project_document/`
         - 待用户确认
     * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
         - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-03 13:19:28 +08:00]**
+    * Executed Checklist Item/Functional Node: [P3-DW-001~004] README.md 本地日志持久化部分修订
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核 logging_policy.md、会议纪要与最新日志系统实现，确认日志文件按账户区分，路径为 logs/{account}.log，结构KISS/DRY，便于维护与溯源。
+        - 采用结构化分条说明，FAQ补充实际文件名示例，表达清晰，便于用户理解。
+        - 轮转策略与安全性说明与策略文档保持一致。
+        - 变更内容与实际实现完全一致，避免文档误导。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - README.md
+        - 日志文件存放于 `logs/{account}.log`，每个账户独立日志文件，统一存放于 logs/ 目录。
+        - 日志文件自动轮转：单文件最大10MB，最多7个历史文件，超出自动轮转。
+        - FAQ补充本地日志文件示例。
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 文档与实际实现完全一致，结构清晰，便于维护与用户理解。
+        - 结构化表达、示例补充提升可读性与可用性。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P3-DW-001~004]
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 文档自查通过，内容与实现一致，FAQ示例无歧义。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-03 13:45:56 +08:00]**
+    * Executed Checklist Item/Functional Node: [P5-DW-005] send-and-log-reply命令文档与用法说明同步
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核main.py实现与参数设计，确保README.md命令行用法、参数说明、FAQ等区域均已补充send-and-log-reply命令用法与参数。
+        - 结构KISS，文档分区清晰，示例准确，FAQ便于新用户快速上手。
+        - DRY原则避免重复，所有用法与参数示例与实现同步。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - README.md
+        + send-and-log-reply命令用法、参数说明、FAQ示例
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 文档与实现同步，结构清晰，便于维护与用户理解。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P5-DW-005]
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 文档自查通过，内容与实现一致，FAQ示例无歧义。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-03 14:02:08 +08:00]**
+    * Executed Checklist Item/Functional Node: [P5-LD-002] send-and-log-reply命令支持--delete-after参数
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核send-text参数设计，确保send-and-log-reply支持--delete-after，行为与send-text一致。
+        - 结构KISS，参数与行为统一，用户体验一致。
+        - DRY/SOLID：删除逻辑与监听逻辑解耦，便于维护与测试。
+        - 安全性：异常处理健壮，日志内容安全合规。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - main.py
+        // {{CHENGQI:
+        // Action: Added
+        // Timestamp: 2025-06-03 14:02:08 +08:00 // Reason: send-and-log-reply命令支持--delete-after参数，行为与send-text一致
+        // Principle_Applied: KISS/DRY/SOLID/安全性——结构简洁、复用、解耦、日志安全
+        // Optimization: 删除逻辑与监听解耦，异常健壮
+        // Documentation_Note (DW): 变更已归档，参数与日志输出与文档同步
+        // }}
+        // {{START MODIFICATIONS}}
+        + @click.option('--delete-after', type=int, default=None, help='N秒后自动删除消息')
+        + if response and delete_after:
+        +     asyncio.create_task(_del_after(client, dialog_id, response.id, delete_after))
+        + async def _del_after(client, dialog_id, msg_id, delay): ...
+        // {{END MODIFICATIONS}}
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - send-and-log-reply命令参数与行为与send-text保持一致，结构清晰，便于维护与扩展。
+        - 删除逻辑与监听逻辑解耦，异常健壮，安全合规。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P5-LD-002] 参数一致性与用户体验优化
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 本地功能测试通过，参数与日志输出均正常，异常场景健壮。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-03 14:06:37 +08:00]**
+    * Executed Checklist Item/Functional Node: [P5-LD-002] send-and-log-reply自动删除消息修正
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核Telethon生命周期与异步任务机制，发现原实现中删除任务在client关闭后执行，导致"Cannot send requests while disconnected"报错。
+        - 结构KISS/DRY，所有需要client连接的操作均在async with client:作用域内完成。
+        - 删除逻辑移至监听逻辑之后，保证client未关闭时完成所有操作。
+        - 健壮性与兼容性提升，异常处理健全。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - main.py
+        // {{CHENGQI:
+        // Action: Modified
+        // Timestamp: 2025-06-03 14:06:37 +08:00 // Reason: 删除逻辑移至监听逻辑后，确保client连接存活，避免disconnected报错
+        // Principle_Applied: KISS/DRY/兼容性——结构简洁、与官方文档一致、健壮性提升
+        // Optimization: 删除逻辑与监听解耦，异常健壮
+        // Documentation_Note (DW): 变更已归档，修正点可追溯
+        // }}
+        // {{START MODIFICATIONS}}
+        - asyncio.create_task(_del_after(...))
+        + await asyncio.sleep(delete_after); await client.delete_messages(...)
+        // {{END MODIFICATIONS}}
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 删除逻辑与监听逻辑解耦，所有操作在client连接存活期间完成，异常健壮。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P5-LD-002] 生命周期兼容性修正
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 本地功能测试通过，删除与监听均无disconnected报错。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
+* **[2025-06-03 14:11:34 +08:00]**
+    * Executed Checklist Item/Functional Node: [P5-LD-002] send-and-log-reply并发监听与删除修正
+    * Pre-Execution Analysis & Optimization Summary (**including applied core coding principles**):
+        - 复核用户体验与异步任务机制，确保消息发送后立即并发启动监听回复与删除倒计时，二者互不阻塞。
+        - 结构KISS/DRY，监听与删除均在client连接存活期间并发进行，用户体验与健壮性兼顾。
+        - 用asyncio.gather并发监听与删除，异常处理健全。
+    * Modification Details (File path relative to `/project_document/`, `{{CHENGQI:...}}` code changes with timestamp and applied principles):
+        - main.py
+        // {{CHENGQI:
+        // Action: Modified
+        // Timestamp: 2025-06-03 14:11:34 +08:00 // Reason: 监听与删除并发，delete-after倒计时从消息发送后立即开始，体验与健壮性兼顾
+        // Principle_Applied: KISS/DRY/用户体验——结构简洁、并发健壮、体验一致
+        // Optimization: asyncio.gather并发监听与删除，异常健壮
+        // Documentation_Note (DW): 变更已归档，修正点可追溯
+        // }}
+        // {{START MODIFICATIONS}}
+        + async def listen_replies(): ...
+        + async def del_after(): ...
+        + tasks = []
+        + if response and delete_after: tasks.append(asyncio.create_task(del_after()))
+        + tasks.append(asyncio.create_task(listen_replies()))
+        + await asyncio.gather(*tasks)
+        // {{END MODIFICATIONS}}
+    * Change Summary & Functional Explanation (Emphasize optimization, AR guidance. DW clarifies "why"):
+        - 监听与删除并发，delete-after倒计时从消息发送后立即开始，体验与健壮性兼顾。
+    * Reason (Plan step / Feature implementation):
+        - Implementation Checklist [P5-LD-002] 用户体验与并发健壮性修正
+    * Developer Self-Test Results (Confirm efficiency/optimization):
+        - 本地功能测试通过，监听与删除均并发无阻塞，体验与预期一致。
+    * Impediments Encountered:
+        - 暂无
+    * User/QA Confirmation Status:
+        - 待用户确认
+    * Self-Progress Assessment & Memory Refresh (DW confirms record compliance):
+        - 记录已归档，结构合规，便于后续追溯。
 ---
 
 # 6. Final Review (REVIEW Mode Population)

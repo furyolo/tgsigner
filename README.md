@@ -1,7 +1,7 @@
 # Telegram 多账户命令行自动化与日志推送工具
 
 > 支持批量运维、集中 session 管理、日志推送到 Telegram bot 与本地持久化
-> 更新时间：2025-06-02 15:54:10 +08:00
+> 更新时间：2025-06-03 14:24:06 +08:00
 
 ## 项目简介
 本项目基于 Telethon，支持多账户、集中 session 管理、命令行灵活操作（消息发送、登录、登出、延迟删除、代理、对话查询等），适用于 Telegram 群组/频道自动化、批量运维等场景。
@@ -63,6 +63,15 @@
   uv run main.py -a fury send-text --delete-after 10 -- -105275 hello
   ```
   `--` 告诉命令行解析器，后面的内容全部作为"位置参数"处理，不再解析为选项。
+- **发送消息并监听回复写入日志**
+  ```bash
+  uv run main.py -a fury send-and-log-reply 77893 "你好，机器人" --timeout 30 --max-messages 1 --delete-after 5
+  ```
+  > 发送后自动监听目标对话的回复（默认首条，支持--timeout、--max-messages、--delete-after），收到内容自动写入日志。
+  >
+  > **说明：**
+  > - `--delete-after` 倒计时从消息发送后立即开始，监听回复与消息删除互不阻塞。
+  > - 若消息发送失败，不会启动监听/删除，日志有详细错误提示。
 
 ## 参数说明
 - `-a/--account`：账户名（如 anzo, fury），必填。
@@ -71,6 +80,7 @@
 - `--delete-after`：N 秒后自动删除消息，可选。
 - `login`/`logout`：登录/登出账户。
 - `list-dialogs`：查询所有对话ID与名称。
+- `send-and-log-reply`：发送消息并监听目标对话回复，收到内容写入日志。参数：dialog_id, message, --timeout, --max-messages, --delete-after。监听与删除并发，delete-after倒计时从消息发送后立即开始。
 
 ## 日志推送与本地持久化
 - **日志推送到Telegram bot**：
@@ -85,7 +95,8 @@
     - 敏感信息保护（日志不含API密钥等敏感信息）
   - 配置缺失或错误时，日志推送自动降级为本地持久化。
 - **本地日志持久化**：
-  - 日志文件存放于 `logs/main.log`，自动轮转（单文件最大10MB，最多7个历史文件）。
+  - 日志文件存放于 `logs/{account}.log`，每个账户独立日志文件，统一存放于 logs/ 目录。
+  - 日志文件自动轮转：单文件最大10MB，最多7个历史文件，超出自动轮转。
   - 控制台与文件双输出，便于开发与生产调试。
   - logs/目录首次运行自动创建。
   - 日志内容不含API_ID、API_HASH等敏感信息。
@@ -113,12 +124,27 @@
   需在.env配置LOG_BOT_TOKEN、LOG_BOT_CHAT_ID、LOG_BOT_LEVEL，推送失败自动降级为本地日志，不影响主业务。
 - **日志本地持久化如何轮转？**
   日志文件最大10MB，最多7个历史文件，超出自动轮转。
+- **本地日志文件示例？**
+  日志文件按账户区分，示例：
+  ```
+  logs/anzo.log
+  logs/fury.log
+  ```
 - **日志是否包含敏感信息？**
   日志不记录API密钥等敏感信息。
+- **如何发送消息并监听回复写入日志？**
+  使用 send-and-log-reply 命令：
+  ```bash
+  uv run main.py -a fury send-and-log-reply 77893 "你好，机器人" --timeout 30 --max-messages 1 --delete-after 5
+  ```
+  > 发送后自动监听目标对话的回复（默认首条，支持--timeout、--max-messages、--delete-after），收到内容自动写入日志。
+  >
+  > **说明：**
+  > - `--delete-after` 倒计时从消息发送后立即开始，监听回复与消息删除互不阻塞。
+  > - 若消息发送失败，不会启动监听/删除，日志有详细错误提示。
+- **send-and-log-reply 异常场景说明**
+  - 若消息发送失败（如网络异常、权限不足等），不会启动监听/删除，日志会详细记录错误。
+  - 监听期间如遇超时、无回复、或删除失败，均有详细日志提示，便于排查。
 
 ## 文档与归档说明
-- 所有设计、决策、会议纪要、实现细节、日志策略均归档于 `/project_document/` 目录，详见 `tgsigner_task.md`、`logging_policy.md`。
-- 会议纪要、Checklist、进度与回顾等均严格遵循 RIPER-5 文档管理标准。
-
----
-如需更多帮助或扩展功能，请查阅 `/project_document/` 或联系维护者。
+- 所有设计、决策、会议纪要、实现细节、日志策略均归档于 `/project_document/` 目录，详见 `tgsigner_task.md`、`logging_policy.md`
