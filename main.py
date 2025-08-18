@@ -3,6 +3,8 @@ import sys
 import logging
 import asyncio
 import click
+import json
+import random
 from dotenv import load_dotenv
 from python_socks import ProxyType
 from telethon import TelegramClient
@@ -172,7 +174,9 @@ def login(ctx):
         )
         async with client:
             logger.info('请根据提示完成登录...')
-            await client.start()
+            await client.connect()
+            if not await client.is_user_authorized():
+                client.start()
             logger.info('登录完成')
     asyncio.run(_login())
 
@@ -271,6 +275,52 @@ def send_and_log_reply(ctx, dialog_id, message, timeout, max_messages, delete_af
             except Exception as e:
                 logger.error(e)
     asyncio.run(_send_and_listen())
+
+@cli.command()
+@click.argument('dialog_id', type=str)
+@click.option('--delete-after', type=int, default=None, help='N秒后自动删除消息')
+@click.pass_context
+def send_markdown(ctx, dialog_id, delete_after):
+    """从messages.json中随机选择一条Markdown消息发送到指定dialog_id，可选N秒后自动删除。"""
+    async def _send():
+        client = TelegramClient(
+            ctx.obj['session'],
+            ctx.obj['api_id'],
+            ctx.obj['api_hash'],
+            proxy=ctx.obj['proxy']
+        )
+        async with client:
+            # 读取messages.json文件
+            try:
+                with open('messages.json', 'r', encoding='utf-8') as f:
+                    messages = json.load(f)
+                if not messages:
+                    logger.error('messages.json文件为空')
+                    return
+            except FileNotFoundError:
+                logger.error('未找到messages.json文件')
+                return
+            except json.JSONDecodeError as e:
+                logger.error(f'messages.json文件格式错误: {e}')
+                return
+            
+            # 随机选择一条消息
+            message = random.choice(messages)
+            # 只显示消息的前20个字符，避免日志过长
+            message_preview = message[:20] + "..." if len(message) > 20 else message
+            logger.info(f'向{dialog_id}发送Markdown消息: {message_preview}')
+            
+            try:
+                response = await client.send_message(int(dialog_id), message, parse_mode='md')
+                if response:
+                    logger.info(f'Markdown消息发送成功！')
+                    if delete_after:
+                        await asyncio.sleep(delete_after)
+                        await client.delete_messages(int(dialog_id), response.id)
+                        logger.info('消息已删除')
+            except Exception as e:
+                logger.error(e)
+    asyncio.run(_send())
 
 if __name__ == '__main__':
     cli(obj={})

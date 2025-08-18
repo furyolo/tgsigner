@@ -135,3 +135,13 @@ example.db
 
 # Ignore Telegram session files
 sessions/
+
+# kilo code
+.kilocode/
+
+# Claude Code
+.claude/
+CLAUDE.md
+.mcp.json
+
+messages.json
