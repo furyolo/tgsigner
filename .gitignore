@@ -136,6 +136,9 @@ example.db
 # Ignore Telegram session files
 sessions/
 
+# Ignore log files and directory
+logs/
+
 # kilo code
 .kilocode/
 
